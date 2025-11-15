@@ -1,31 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-cream text-charcoal;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 }
 
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors;
+    @apply px-6 py-3 rounded-2xl font-medium transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98];
   }
 
   .btn-primary {
-    @apply btn bg-primary-600 text-white hover:bg-primary-700;
+    @apply btn bg-gradient-to-br from-coral to-coral-dark text-white shadow-lg shadow-coral/25 hover:shadow-xl hover:shadow-coral/35;
   }
 
   .btn-secondary {
-    @apply btn bg-gray-200 text-gray-800 hover:bg-gray-300;
+    @apply btn bg-sage/10 text-sage-dark hover:bg-sage/20 border border-sage/20;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent hover:bg-charcoal/5 text-charcoal;
   }
 
   .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-4 py-3 border-2 border-charcoal/10 rounded-2xl
+           bg-white/50 backdrop-blur-sm
+           focus:outline-none focus:border-coral focus:bg-white
+           transition-all duration-300 placeholder:text-charcoal/40;
   }
 
   .card {
-    @apply bg-white rounded-lg shadow-md p-6;
+    @apply bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg shadow-charcoal/5 p-6
+           border border-charcoal/5 transition-all duration-300
+           hover:shadow-xl hover:shadow-charcoal/10;
+  }
+
+  .stat-card {
+    @apply card p-8 relative overflow-hidden cursor-pointer;
+  }
+
+  .badge {
+    @apply px-3 py-1.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5;
+  }
+
+  .floating-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(40px);
+    opacity: 0.15;
+    animation: float 20s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(20px, -20px) rotate(90deg); }
+    50% { transform: translate(0, -30px) rotate(180deg); }
+    75% { transform: translate(-20px, -10px) rotate(270deg); }
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+  }
+
+  .loading-shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-br from-coral to-coral-dark bg-clip-text text-transparent;
+  }
+
+  .bg-gradient-warm {
+    background: linear-gradient(135deg, #FAF8F4 0%, #FFF9F2 100%);
+  }
+
+  .bg-gradient-coral {
+    background: linear-gradient(135deg, #FF8066 0%, #FF6B52 100%);
+  }
+
+  .bg-gradient-sage {
+    background: linear-gradient(135deg, #B8C5A8 0%, #9EAE8A 100%);
   }
 }
