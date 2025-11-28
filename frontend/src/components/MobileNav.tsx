@@ -1,4 +1,5 @@
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../services/authContext';
 import {
   LayoutDashboard,
@@ -9,10 +10,12 @@ import {
   User,
   LogOut,
   Sparkles,
+  Menu,
+  X,
 } from 'lucide-react';
-import MobileNav from './MobileNav';
 
-const Layout = () => {
+const MobileNav = () => {
+  const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
 
@@ -25,24 +28,70 @@ const Layout = () => {
     { name: 'Profile', href: '/profile', icon: User, color: 'sage' },
   ];
 
+  const handleLogout = () => {
+    setIsOpen(false);
+    logout();
+  };
+
+  const handleNavClick = () => {
+    setIsOpen(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-mesh relative overflow-hidden">
-      {/* Sophisticated floating gradient orbs */}
-      <div className="floating-blob w-[500px] h-[500px] bg-gradient-teal -top-64 -left-64 opacity-20" style={{ animationDelay: '0s' }} />
-      <div className="floating-blob w-[400px] h-[400px] bg-gradient-terracotta top-1/3 -right-48 opacity-15" style={{ animationDelay: '8s' }} />
-      <div className="floating-blob w-[450px] h-[450px] bg-gradient-plum bottom-0 left-1/4 opacity-10" style={{ animationDelay: '16s' }} />
-      <div className="floating-blob w-[350px] h-[350px] bg-soft-teal/30 top-2/3 right-1/4 opacity-15" style={{ animationDelay: '12s' }} />
+    <>
+      {/* Mobile header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 glass backdrop-blur-2xl shadow-elegant border-b border-white/20">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-deep-teal via-terracotta to-rich-plum opacity-60"></div>
+        <div className="flex items-center justify-between p-4">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-teal flex items-center justify-center shadow-elegant relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
+              <Sparkles className="text-white relative z-10" size={18} />
+            </div>
+            <div className="leading-tight">
+              <h1 className="text-base font-display font-bold text-gradient">
+                Student
+              </h1>
+              <h1 className="text-base font-display font-bold text-gradient-warm">
+                Balance
+              </h1>
+            </div>
+          </div>
 
-      {/* Mobile Navigation */}
-      <MobileNav />
+          {/* Hamburger button */}
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="p-3 rounded-2xl glass border border-white/30 hover:shadow-glass transition-all duration-500 active-scale"
+            aria-label="Toggle menu"
+          >
+            {isOpen ? <X size={22} className="text-charcoal" /> : <Menu size={22} className="text-charcoal" />}
+          </button>
+        </div>
+      </div>
 
-      {/* Desktop Sidebar - Hidden on mobile */}
-      <div className="hidden lg:flex fixed inset-y-0 left-0 w-80 glass backdrop-blur-2xl shadow-elegant border-r border-white/20 z-50">
+      {/* Backdrop overlay */}
+      {isOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-charcoal/50 backdrop-blur-md z-40 animate-fade-in-scale"
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Slide-out drawer */}
+      <div
+        className={`
+          lg:hidden fixed top-0 left-0 bottom-0 w-80 glass backdrop-blur-2xl shadow-float border-r border-white/20
+          z-50 transform transition-all duration-500 ease-out
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
         <div className="flex flex-col h-full p-8 relative">
           {/* Decorative top gradient line */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-deep-teal via-terracotta to-rich-plum opacity-60"></div>
 
-          {/* Logo Section */}
+          {/* Logo & User info */}
           <div className="mb-10 pb-8 border-b border-charcoal/10 animate-fade-in-scale">
             <div className="flex items-center gap-4 mb-5">
               <div className="w-14 h-14 rounded-3xl bg-gradient-teal flex items-center justify-center shadow-elegant relative overflow-hidden group">
@@ -65,17 +114,18 @@ const Layout = () => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-2 animate-fade-in-up">
+          <nav className="flex-1 space-y-2 animate-fade-in-up overflow-y-auto mobile-hide-scrollbar">
             {navigation.map((item, idx) => {
               const isActive = location.pathname === item.href;
               return (
                 <Link
                   key={item.name}
                   to={item.href}
+                  onClick={handleNavClick}
                   style={{ animationDelay: `${idx * 0.05}s` }}
                   className={`
                     group flex items-center gap-4 px-5 py-4 rounded-3xl
-                    transition-all duration-500 relative overflow-hidden
+                    transition-all duration-500 relative overflow-hidden active-scale
                     ${isActive
                       ? 'bg-gradient-teal text-white shadow-elegant'
                       : 'text-charcoal hover:bg-white/40 hover:shadow-glass'
@@ -114,30 +164,18 @@ const Layout = () => {
           {/* Logout */}
           <div className="pt-6 border-t border-charcoal/10 animate-fade-in-up">
             <button
-              onClick={logout}
-              className="group flex items-center gap-4 px-5 py-4 w-full text-charcoal/60 hover:text-charcoal hover:bg-white/40 rounded-3xl transition-all duration-500 relative overflow-hidden"
+              onClick={handleLogout}
+              className="group flex items-center gap-4 px-5 py-4 w-full text-charcoal/60 hover:text-charcoal hover:bg-white/40 rounded-3xl transition-all duration-500 relative overflow-hidden active-scale"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-terracotta/5 to-deep-teal/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
               <LogOut size={20} className="relative z-10 transition-transform duration-500 group-hover:-translate-x-1" />
               <span className="font-medium relative z-10">Logout</span>
             </button>
           </div>
-
-          {/* Decorative bottom element */}
-          <div className="absolute bottom-8 left-8 right-8 h-16 bg-gradient-to-r from-deep-teal/5 via-terracotta/5 to-rich-plum/5 rounded-3xl backdrop-blur-sm border border-white/20 flex items-center justify-center">
-            <p className="text-xs font-accent text-charcoal/40 uppercase tracking-widest">Designed for Balance</p>
-          </div>
         </div>
       </div>
-
-      {/* Main content */}
-      <div className="lg:ml-80 p-6 lg:p-12 pt-20 lg:pt-12 min-h-screen relative z-10">
-        <div className="max-w-7xl mx-auto">
-          <Outlet />
-        </div>
-      </div>
-    </div>
+    </>
   );
 };
 
-export default Layout;
+export default MobileNav;

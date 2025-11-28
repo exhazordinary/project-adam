@@ -1,18 +1,45 @@
 import { useEffect, useState } from 'react';
 import { taskAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { Plus, CheckSquare, Circle, CheckCircle2, X, AlertCircle } from 'lucide-react';
+import { Plus, CheckSquare, Circle, CheckCircle2, X, AlertCircle, Clock, Trash2, GripVertical } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const Tasks = () => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [activeId, setActiveId] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     deadline: '',
     priority: 'MEDIUM',
   });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     fetchTasks();
@@ -33,7 +60,13 @@ const Tasks = () => {
     e.preventDefault();
     try {
       await taskAPI.create(formData);
-      toast.success('Task created! ✓');
+      toast.success('Task created!');
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#0A5F5F', '#D67B5C'],
+      });
       setShowForm(false);
       setFormData({
         title: '',
@@ -50,266 +83,461 @@ const Tasks = () => {
   const updateTaskStatus = async (taskId: string, status: string) => {
     try {
       await taskAPI.update(taskId, { status });
-      toast.success(status === 'COMPLETED' ? 'Task completed! 🎉' : 'Task updated');
+      if (status === 'COMPLETED') {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#0A5F5F', '#D67B5C', '#6B5B8D'],
+        });
+        toast.success('🎉 Task completed!');
+      } else {
+        toast.success('Task updated');
+      }
       fetchTasks();
     } catch (error) {
       toast.error('Failed to update task');
     }
   };
 
+  const deleteTask = async (taskId: string) => {
+    try {
+      await taskAPI.delete(taskId);
+      toast.success('Task deleted');
+      fetchTasks();
+    } catch (error) {
+      toast.error('Failed to delete task');
+    }
+  };
+
   const getPriorityConfig = (priority: string) => {
     const configs: any = {
       URGENT: {
-        color: 'bg-coral/10 text-coral border-coral/20',
+        color: 'bg-terracotta/10 text-terracotta border-terracotta/30',
+        gradient: 'from-terracotta/20 to-warm-terracotta/20',
         icon: <AlertCircle size={16} />,
       },
       HIGH: {
-        color: 'bg-honey/10 text-honey-dark border-honey/20',
+        color: 'bg-warm-terracotta/10 text-terracotta-600 border-warm-terracotta/30',
+        gradient: 'from-warm-terracotta/20 to-terracotta/20',
         icon: <AlertCircle size={16} />,
       },
       MEDIUM: {
-        color: 'bg-sage/10 text-sage-dark border-sage/20',
+        color: 'bg-deep-teal/10 text-deep-teal border-deep-teal/30',
+        gradient: 'from-deep-teal/20 to-soft-teal/20',
         icon: <Circle size={16} />,
       },
       LOW: {
         color: 'bg-charcoal/10 text-charcoal border-charcoal/20',
+        gradient: 'from-charcoal/10 to-charcoal/5',
         icon: <Circle size={16} />,
       },
     };
     return configs[priority] || configs.MEDIUM;
   };
 
-  const activeTasks = tasks.filter(t => t.status !== 'COMPLETED');
+  const todoTasks = tasks.filter(t => t.status === 'TODO');
+  const inProgressTasks = tasks.filter(t => t.status === 'IN_PROGRESS');
   const completedTasks = tasks.filter(t => t.status === 'COMPLETED');
+
+  const handleDragStart = (event: any) => {
+    setActiveId(event.active.id);
+  };
+
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event;
+
+    if (!over) {
+      setActiveId(null);
+      return;
+    }
+
+    const task = tasks.find(t => t.id === active.id);
+    if (!task) {
+      setActiveId(null);
+      return;
+    }
+
+    // Get the column from the over id
+    let newStatus = task.status;
+    if (over.id === 'TODO' || over.id.startsWith('task-TODO-')) {
+      newStatus = 'TODO';
+    } else if (over.id === 'IN_PROGRESS' || over.id.startsWith('task-IN_PROGRESS-')) {
+      newStatus = 'IN_PROGRESS';
+    } else if (over.id === 'COMPLETED' || over.id.startsWith('task-COMPLETED-')) {
+      newStatus = 'COMPLETED';
+    }
+
+    if (newStatus !== task.status) {
+      updateTaskStatus(active.id, newStatus);
+    }
+
+    setActiveId(null);
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="relative">
-          <div className="w-16 h-16 border-4 border-sage/20 border-t-sage rounded-full animate-spin"></div>
-          <div className="mt-4 text-charcoal/60 text-center font-medium">Loading tasks...</div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative"
+        >
+          <div className="relative w-32 h-32">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 border-4 border-deep-teal/20 rounded-full"
+            />
+            <motion.div
+              animate={{ rotate: -360 }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-2 border-4 border-transparent border-t-deep-teal border-r-terracotta rounded-full"
+            />
+          </div>
+          <motion.p
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="mt-8 text-center text-charcoal/70 font-display text-xl font-semibold"
+          >
+            Loading tasks...
+          </motion.p>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in-up">
+    <div className="space-y-10 relative">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-4xl font-display font-bold text-charcoal mb-2">Tasks</h1>
-          <p className="text-charcoal/60">
-            {activeTasks.length} active • {completedTasks.length} completed
-          </p>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative"
+      >
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+          <div>
+            <span className="inline-block text-xs font-accent uppercase tracking-widest text-deep-teal/60 mb-3">
+              Task Management
+            </span>
+            <h1 className="text-6xl lg:text-7xl font-display font-bold text-charcoal mb-3 leading-none">
+              Your Tasks
+            </h1>
+            <div className="h-1 w-24 bg-gradient-to-r from-deep-teal via-terracotta to-rich-plum rounded-full mb-4"></div>
+            <p className="text-lg text-charcoal/60 font-light">
+              {todoTasks.length} todo • {inProgressTasks.length} in progress • {completedTasks.length} completed
+            </p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowForm(!showForm)}
+            className={`${showForm ? 'btn-secondary' : 'btn-primary'} flex items-center gap-3 self-start lg:self-auto`}
+          >
+            {showForm ? (
+              <>
+                <X size={20} />
+                <span>Cancel</span>
+              </>
+            ) : (
+              <>
+                <Plus size={20} />
+                <span>Create Task</span>
+              </>
+            )}
+          </motion.button>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className={`${showForm ? 'btn-ghost' : 'btn-primary'} flex items-center gap-2`}
-        >
-          {showForm ? (
-            <>
-              <X size={20} />
-              Cancel
-            </>
-          ) : (
-            <>
-              <Plus size={20} />
-              Add Task
-            </>
-          )}
-        </button>
-      </div>
+      </motion.div>
 
       {/* Create Form */}
-      {showForm && (
-        <div className="card mb-8 border-2 border-sage/20">
-          <h2 className="text-2xl font-display font-bold text-charcoal mb-6">Create New Task</h2>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-semibold text-charcoal mb-2">
-                Task Title
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="input"
-                placeholder="e.g., Complete assignment"
-              />
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="card shadow-elegant border-2 border-deep-teal/20 overflow-hidden"
+          >
+            <div className="mb-8">
+              <h2 className="text-4xl font-display font-bold text-charcoal mb-2">Create New Task</h2>
+              <p className="text-charcoal/60">Add a new task to your workflow</p>
             </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-charcoal mb-2">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="input"
-                rows={3}
-                placeholder="Add details about this task..."
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold text-charcoal mb-2">
-                  Deadline
+                <label className="block text-xs font-accent uppercase tracking-wider text-charcoal/70 mb-3">
+                  Task Title
                 </label>
                 <input
-                  type="datetime-local"
-                  value={formData.deadline}
-                  onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   className="input"
+                  placeholder="e.g., Complete project proposal"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-semibold text-charcoal mb-2">
-                  Priority
+                <label className="block text-xs font-accent uppercase tracking-wider text-charcoal/70 mb-3">
+                  Description
                 </label>
-                <select
-                  value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                  className="input"
-                >
-                  <option value="LOW">Low</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HIGH">High</option>
-                  <option value="URGENT">Urgent</option>
-                </select>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="input resize-none"
+                  rows={4}
+                  placeholder="Add details about this task..."
+                />
               </div>
-            </div>
 
-            <button type="submit" className="btn-primary w-full mt-6">
-              Create Task
-            </button>
-          </form>
-        </div>
-      )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-accent uppercase tracking-wider text-charcoal/70 mb-3">
+                    Deadline
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={formData.deadline}
+                    onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-accent uppercase tracking-wider text-charcoal/70 mb-3">
+                    Priority
+                  </label>
+                  <select
+                    value={formData.priority}
+                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                    className="input cursor-pointer"
+                  >
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                    <option value="URGENT">Urgent</option>
+                  </select>
+                </div>
+              </div>
 
-      {/* Tasks List */}
+              <div className="pt-4">
+                <button type="submit" className="btn-primary w-full">
+                  Create Task
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Kanban Board */}
       {tasks.length === 0 ? (
-        <div className="card text-center py-16">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-sage/10 flex items-center justify-center">
-            <CheckSquare className="text-sage-dark" size={32} />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="card text-center py-20"
+        >
+          <div className="w-28 h-28 mx-auto mb-8 rounded-full bg-gradient-to-br from-deep-teal/10 to-terracotta/10 flex items-center justify-center relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-deep-teal/20 to-terracotta/20 animate-breathe"></div>
+            <CheckSquare className="text-deep-teal relative z-10" size={48} strokeWidth={1.5} />
           </div>
-          <h3 className="text-2xl font-display font-bold text-charcoal mb-2">No tasks yet</h3>
-          <p className="text-charcoal/60 mb-6">Create your first task to get started</p>
+          <h3 className="text-4xl font-display font-bold text-charcoal mb-3">No tasks yet</h3>
+          <p className="text-lg text-charcoal/60 mb-8 max-w-md mx-auto">
+            Create your first task to get started with your workflow
+          </p>
           <button onClick={() => setShowForm(true)} className="btn-primary">
-            <Plus size={20} className="inline mr-2" />
-            Add Your First Task
+            <Plus size={20} />
+            <span>Create Your First Task</span>
           </button>
-        </div>
+        </motion.div>
       ) : (
-        <div className="space-y-8">
-          {/* Active Tasks */}
-          {activeTasks.length > 0 && (
-            <div>
-              <h2 className="text-2xl font-display font-bold text-charcoal mb-4 flex items-center gap-2">
-                <Circle className="text-sage-dark" size={24} />
-                Active Tasks
-                <span className="text-base font-normal text-charcoal/50">
-                  ({activeTasks.length})
-                </span>
-              </h2>
-              <div className="space-y-3">
-                {activeTasks.map((task, idx) => {
-                  const priorityConfig = getPriorityConfig(task.priority);
-                  return (
-                    <div
-                      key={task.id}
-                      className="card group hover:shadow-xl transition-all duration-300"
-                      style={{ animationDelay: `${idx * 0.05}s` }}
-                    >
-                      <div className="flex items-start gap-4">
-                        <button
-                          onClick={() => updateTaskStatus(task.id, 'COMPLETED')}
-                          className="mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 border-sage-dark hover:bg-sage-dark hover:border-sage-dark transition-all group/check"
-                        >
-                          <CheckCircle2
-                            className="text-white opacity-0 group-hover/check:opacity-100 transition-opacity"
-                            size={20}
-                          />
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-2 flex-wrap">
-                            <h3 className="text-lg font-display font-bold text-charcoal">
-                              {task.title}
-                            </h3>
-                            <span className={`badge ${priorityConfig.color} flex items-center gap-1`}>
-                              {priorityConfig.icon}
-                              {task.priority}
-                            </span>
-                          </div>
-                          {task.description && (
-                            <p className="text-charcoal/70 mb-2">{task.description}</p>
-                          )}
-                          {task.deadline && (
-                            <p className="text-sm text-charcoal/60">
-                              Due: {new Date(task.deadline).toLocaleString([], {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <KanbanColumn
+              id="TODO"
+              title="To Do"
+              count={todoTasks.length}
+              color="deep-teal"
+              tasks={todoTasks}
+              getPriorityConfig={getPriorityConfig}
+              deleteTask={deleteTask}
+            />
+            <KanbanColumn
+              id="IN_PROGRESS"
+              title="In Progress"
+              count={inProgressTasks.length}
+              color="terracotta"
+              tasks={inProgressTasks}
+              getPriorityConfig={getPriorityConfig}
+              deleteTask={deleteTask}
+            />
+            <KanbanColumn
+              id="COMPLETED"
+              title="Completed"
+              count={completedTasks.length}
+              color="rich-plum"
+              tasks={completedTasks}
+              getPriorityConfig={getPriorityConfig}
+              deleteTask={deleteTask}
+            />
+          </div>
+
+          <DragOverlay>
+            {activeId ? (
+              <TaskCard
+                task={tasks.find(t => t.id === activeId)}
+                getPriorityConfig={getPriorityConfig}
+                deleteTask={deleteTask}
+                isDragging={true}
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
+    </div>
+  );
+};
+
+// Kanban Column Component
+const KanbanColumn = ({ id, title, count, color, tasks, getPriorityConfig, deleteTask }: any) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: id === 'TODO' ? 0.1 : id === 'IN_PROGRESS' ? 0.2 : 0.3 }}
+      className="flex flex-col h-full"
+    >
+      <div className={`glass rounded-2xl p-4 border-2 border-${color}/20 mb-4`}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-display font-bold text-charcoal">{title}</h3>
+          <span className={`badge bg-${color}/10 text-${color} border-${color}/30`}>
+            {count}
+          </span>
+        </div>
+      </div>
+
+      <SortableContext
+        items={tasks.map((t: any) => `task-${id}-${t.id}`)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div
+          id={id}
+          className="flex-1 space-y-3 glass rounded-3xl p-4 border border-white/20 min-h-[400px]"
+        >
+          <AnimatePresence>
+            {tasks.map((task: any, idx: number) => (
+              <SortableTaskCard
+                key={task.id}
+                id={`task-${id}-${task.id}`}
+                task={task}
+                index={idx}
+                getPriorityConfig={getPriorityConfig}
+                deleteTask={deleteTask}
+              />
+            ))}
+          </AnimatePresence>
+          {tasks.length === 0 && (
+            <div className="flex items-center justify-center h-full text-charcoal/30 text-sm">
+              Drag tasks here
             </div>
+          )}
+        </div>
+      </SortableContext>
+    </motion.div>
+  );
+};
+
+// Sortable Task Card
+const SortableTaskCard = ({ id, task, index, getPriorityConfig, deleteTask }: any) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      transition={{ delay: index * 0.05 }}
+    >
+      <TaskCard
+        task={task}
+        getPriorityConfig={getPriorityConfig}
+        deleteTask={deleteTask}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+    </motion.div>
+  );
+};
+
+// Task Card Component
+const TaskCard = ({ task, getPriorityConfig, deleteTask, dragHandleProps, isDragging }: any) => {
+  if (!task) return null;
+
+  const priorityConfig = getPriorityConfig(task.priority);
+
+  return (
+    <div
+      className={`card group cursor-move hover:shadow-elegant transition-all duration-500 relative ${
+        isDragging ? 'shadow-float scale-105' : ''
+      }`}
+    >
+      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${priorityConfig.gradient}`}></div>
+
+      <div className="flex items-start gap-3">
+        <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing pt-1">
+          <GripVertical className="text-charcoal/30 group-hover:text-charcoal/60 transition-colors" size={18} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <h4 className={`font-semibold text-charcoal ${task.status === 'COMPLETED' ? 'line-through opacity-60' : ''}`}>
+              {task.title}
+            </h4>
+            <button
+              onClick={() => deleteTask(task.id)}
+              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-terracotta/10 rounded-lg transition-all duration-300"
+            >
+              <Trash2 className="text-terracotta" size={16} />
+            </button>
+          </div>
+
+          {task.description && (
+            <p className="text-sm text-charcoal/60 mb-3 line-clamp-2">{task.description}</p>
           )}
 
-          {/* Completed Tasks */}
-          {completedTasks.length > 0 && (
-            <div>
-              <h2 className="text-2xl font-display font-bold text-charcoal/60 mb-4 flex items-center gap-2">
-                <CheckCircle2 className="text-sage-dark" size={24} />
-                Completed
-                <span className="text-base font-normal text-charcoal/40">
-                  ({completedTasks.length})
-                </span>
-              </h2>
-              <div className="space-y-3">
-                {completedTasks.map((task, idx) => {
-                  const priorityConfig = getPriorityConfig(task.priority);
-                  return (
-                    <div
-                      key={task.id}
-                      className="card opacity-75 hover:opacity-100 transition-opacity"
-                      style={{ animationDelay: `${(activeTasks.length + idx) * 0.05}s` }}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="mt-1 flex-shrink-0 w-6 h-6 rounded-full bg-sage-dark flex items-center justify-center">
-                          <CheckCircle2 className="text-white" size={20} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-2 flex-wrap">
-                            <h3 className="text-lg font-display font-semibold text-charcoal/60 line-through">
-                              {task.title}
-                            </h3>
-                            <span className={`badge ${priorityConfig.color} opacity-60`}>
-                              {task.priority}
-                            </span>
-                          </div>
-                          {task.description && (
-                            <p className="text-charcoal/50 text-sm">{task.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className={`badge ${priorityConfig.color} flex items-center gap-1`}>
+              {priorityConfig.icon}
+              <span className="text-xs">{task.priority}</span>
+            </span>
+
+            {task.deadline && (
+              <div className="flex items-center gap-1 text-xs text-charcoal/50">
+                <Clock size={12} />
+                {new Date(task.deadline).toLocaleDateString([], { month: 'short', day: 'numeric' })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
