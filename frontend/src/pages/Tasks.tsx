@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
-import { taskAPI } from '../services/api';
+import { useState } from 'react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@convex/api';
+import { Id } from '@convex/dataModel';
 import toast from 'react-hot-toast';
-import { Plus, CheckSquare, Circle, CheckCircle2, X, AlertCircle, Clock, Trash2, GripVertical } from 'lucide-react';
+import { Plus, CheckSquare, Circle, X, AlertCircle, Clock, Trash2, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import {
@@ -14,7 +16,6 @@ import {
   DragOverlay,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
@@ -23,8 +24,14 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 const Tasks = () => {
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const tasksData = useQuery(api.tasks.list, {});
+  const tasks = tasksData ?? [];
+  const loading = tasksData === undefined;
+
+  const createTask = useMutation(api.tasks.create);
+  const updateTaskStatusMutation = useMutation(api.tasks.updateStatus);
+  const deleteTaskMutation = useMutation(api.tasks.remove);
+
   const [showForm, setShowForm] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [formData, setFormData] = useState({
@@ -41,25 +48,15 @@ const Tasks = () => {
     })
   );
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
-  const fetchTasks = async () => {
-    try {
-      const response = await taskAPI.getAll();
-      setTasks(response.data.tasks);
-    } catch (error) {
-      toast.error('Failed to load tasks');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await taskAPI.create(formData);
+      await createTask({
+        title: formData.title,
+        description: formData.description || undefined,
+        deadline: formData.deadline ? new Date(formData.deadline).getTime() : undefined,
+        priority: formData.priority as "LOW" | "MEDIUM" | "HIGH" | "URGENT",
+      });
       toast.success('Task created!');
       confetti({
         particleCount: 50,
@@ -74,15 +71,17 @@ const Tasks = () => {
         deadline: '',
         priority: 'MEDIUM',
       });
-      fetchTasks();
     } catch (error) {
       toast.error('Failed to create task');
     }
   };
 
-  const updateTaskStatus = async (taskId: string, status: string) => {
+  const updateTaskStatus = async (taskId: Id<"tasks">, status: string) => {
     try {
-      await taskAPI.update(taskId, { status });
+      await updateTaskStatusMutation({
+        id: taskId,
+        status: status as "TODO" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED",
+      });
       if (status === 'COMPLETED') {
         confetti({
           particleCount: 100,
@@ -94,17 +93,15 @@ const Tasks = () => {
       } else {
         toast.success('Task updated');
       }
-      fetchTasks();
     } catch (error) {
       toast.error('Failed to update task');
     }
   };
 
-  const deleteTask = async (taskId: string) => {
+  const deleteTask = async (taskId: Id<"tasks">) => {
     try {
-      await taskAPI.delete(taskId);
+      await deleteTaskMutation({ id: taskId });
       toast.success('Task deleted');
-      fetchTasks();
     } catch (error) {
       toast.error('Failed to delete task');
     }
@@ -152,7 +149,7 @@ const Tasks = () => {
       return;
     }
 
-    const task = tasks.find(t => t.id === active.id);
+    const task = tasks.find(t => t._id === active.id);
     if (!task) {
       setActiveId(null);
       return;
@@ -169,7 +166,7 @@ const Tasks = () => {
     }
 
     if (newStatus !== task.status) {
-      updateTaskStatus(active.id, newStatus);
+      updateTaskStatus(task._id, newStatus);
     }
 
     setActiveId(null);
@@ -389,7 +386,7 @@ const Tasks = () => {
           <DragOverlay>
             {activeId ? (
               <TaskCard
-                task={tasks.find(t => t.id === activeId)}
+                task={tasks.find(t => t._id === activeId)}
                 getPriorityConfig={getPriorityConfig}
                 deleteTask={deleteTask}
                 isDragging={true}
@@ -421,7 +418,7 @@ const KanbanColumn = ({ id, title, count, color, tasks, getPriorityConfig, delet
       </div>
 
       <SortableContext
-        items={tasks.map((t: any) => `task-${id}-${t.id}`)}
+        items={tasks.map((t: any) => `task-${id}-${t._id}`)}
         strategy={verticalListSortingStrategy}
       >
         <div
@@ -431,8 +428,8 @@ const KanbanColumn = ({ id, title, count, color, tasks, getPriorityConfig, delet
           <AnimatePresence>
             {tasks.map((task: any, idx: number) => (
               <SortableTaskCard
-                key={task.id}
-                id={`task-${id}-${task.id}`}
+                key={task._id}
+                id={`task-${id}-${task._id}`}
                 task={task}
                 index={idx}
                 getPriorityConfig={getPriorityConfig}
@@ -512,7 +509,7 @@ const TaskCard = ({ task, getPriorityConfig, deleteTask, dragHandleProps, isDrag
               {task.title}
             </h4>
             <button
-              onClick={() => deleteTask(task.id)}
+              onClick={() => deleteTask(task._id)}
               className="opacity-0 group-hover:opacity-100 p-1 hover:bg-terracotta/10 rounded-lg transition-all duration-300"
             >
               <Trash2 className="text-terracotta" size={16} />

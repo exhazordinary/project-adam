@@ -1,47 +1,32 @@
-import { useEffect, useState } from 'react';
-import { moodAPI } from '../services/api';
+import { useState } from 'react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@convex/api';
 import toast from 'react-hot-toast';
 import { Smile, Heart, TrendingUp, X, Plus } from 'lucide-react';
 
 const MoodTracker = () => {
-  const [moodEntries, setMoodEntries] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>(null);
+  const moodEntries = useQuery(api.mood.list, { limit: 10 }) ?? [];
+  const stats = useQuery(api.mood.getStats, { days: 7 });
+  const createMood = useMutation(api.mood.create);
+
   const [showForm, setShowForm] = useState(false);
   const [moodLevel, setMoodLevel] = useState(5);
   const [stressLevel, setStressLevel] = useState(5);
   const [notes, setNotes] = useState('');
 
-  useEffect(() => {
-    fetchMoodData();
-  }, []);
-
-  const fetchMoodData = async () => {
-    try {
-      const [entriesRes, statsRes] = await Promise.all([
-        moodAPI.getAll({ limit: 10 }),
-        moodAPI.getStats({ days: 7 }),
-      ]);
-      setMoodEntries(entriesRes.data.moodEntries);
-      setStats(statsRes.data.stats);
-    } catch (error) {
-      toast.error('Failed to load mood data');
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await moodAPI.create({
+      await createMood({
         moodLevel,
         stressLevel,
-        notes,
+        notes: notes || undefined,
       });
       toast.success('Mood logged! 💚');
       setShowForm(false);
       setNotes('');
       setMoodLevel(5);
       setStressLevel(5);
-      fetchMoodData();
     } catch (error) {
       toast.error('Failed to save mood entry');
     }
@@ -221,7 +206,7 @@ const MoodTracker = () => {
           <div className="space-y-3">
             {moodEntries.map((entry, idx) => (
               <div
-                key={entry.id}
+                key={entry._id}
                 className="p-5 rounded-2xl bg-gradient-to-r from-charcoal/5 to-transparent border border-charcoal/5 hover:shadow-md transition-all"
                 style={{ animationDelay: `${idx * 0.05}s` }}
               >

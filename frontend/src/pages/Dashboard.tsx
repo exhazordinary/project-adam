@@ -1,64 +1,26 @@
-import { useEffect, useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, CheckSquare, Smile, Activity, ArrowRight, Clock, TrendingUp, Zap, Target, Plus } from 'lucide-react';
-import { scheduleAPI, taskAPI, moodAPI } from '../services/api';
-import toast from 'react-hot-toast';
-import { motion, useMotionValue, useTransform, useSpring, AnimatePresence } from 'framer-motion';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { useQuery } from 'convex/react';
+import { api } from '@convex/api';
+import { Calendar, CheckSquare, Smile, Activity, ArrowRight, Clock, TrendingUp, Zap, Plus } from 'lucide-react';
+import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import confetti from 'canvas-confetti';
 
 const Dashboard = () => {
-  const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
-  const [upcomingTasks, setUpcomingTasks] = useState<any[]>([]);
-  const [latestMood, setLatestMood] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ events: 0, tasks: 0, mood: 0, streak: 7 });
+  const todaySchedule = useQuery(api.schedules.getToday) ?? [];
+  const upcomingTasks = useQuery(api.tasks.getUpcoming) ?? [];
+  const latestMood = useQuery(api.mood.getLatest);
+
   const [showQuickActions, setShowQuickActions] = useState(false);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const [scheduleRes, tasksRes, moodRes] = await Promise.allSettled([
-          scheduleAPI.getToday(),
-          taskAPI.getUpcoming(),
-          moodAPI.getLatest(),
-        ]);
+  const loading = todaySchedule === undefined || upcomingTasks === undefined;
 
-        if (scheduleRes.status === 'fulfilled') {
-          const schedules = scheduleRes.value.data.schedules || [];
-          setTodaySchedule(schedules);
-          setStats(prev => ({ ...prev, events: schedules.length }));
-        }
-
-        if (tasksRes.status === 'fulfilled') {
-          const tasks = tasksRes.value.data.tasks || [];
-          setUpcomingTasks(tasks);
-          setStats(prev => ({ ...prev, tasks: tasks.length }));
-        }
-
-        if (moodRes.status === 'fulfilled') {
-          const mood = moodRes.value.data.moodEntry;
-          setLatestMood(mood);
-          setStats(prev => ({ ...prev, mood: mood?.moodLevel || 0 }));
-        }
-
-        // Animate in after a brief delay
-        setTimeout(() => setLoading(false), 500);
-      } catch (error) {
-        toast.error('Failed to load dashboard data');
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-  }, []);
-
-  const getMoodEmoji = (level: number) => {
-    if (level >= 8) return '😊';
-    if (level >= 6) return '🙂';
-    if (level >= 4) return '😐';
-    if (level >= 2) return '😕';
-    return '😞';
+  const stats = {
+    events: todaySchedule?.length ?? 0,
+    tasks: upcomingTasks?.length ?? 0,
+    mood: latestMood?.moodLevel ?? 0,
+    streak: 7,
   };
 
   const celebrateWithConfetti = () => {
@@ -134,8 +96,8 @@ const Dashboard = () => {
             key={i}
             className="absolute w-2 h-2 bg-deep-teal/20 rounded-full"
             initial={{
-              x: Math.random() * window.innerWidth,
-              y: Math.random() * window.innerHeight,
+              x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000),
+              y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 1000),
             }}
             animate={{
               y: [null, -20, null],
@@ -351,9 +313,9 @@ const Dashboard = () => {
             </div>
             {todaySchedule.length > 0 ? (
               <div className="space-y-4 mb-6">
-                {todaySchedule.slice(0, 5).map((schedule, idx) => (
+                {todaySchedule.slice(0, 5).map((schedule: any, idx: number) => (
                   <motion.div
-                    key={schedule.id}
+                    key={schedule._id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.9 + idx * 0.1 }}
@@ -423,9 +385,9 @@ const Dashboard = () => {
             </div>
             {upcomingTasks.length > 0 ? (
               <div className="space-y-3 mb-6">
-                {upcomingTasks.slice(0, 5).map((task, idx) => (
+                {upcomingTasks.slice(0, 5).map((task: any, idx: number) => (
                   <motion.div
-                    key={task.id}
+                    key={task._id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.9 + idx * 0.1 }}

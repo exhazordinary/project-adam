@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '../services/authContext';
+import { useClerk, useUser } from '@clerk/clerk-react';
 import {
   LayoutDashboard,
   Calendar,
@@ -13,7 +13,8 @@ import {
 import MobileNav from './MobileNav';
 
 const Layout = () => {
-  const { user, logout } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const location = useLocation();
 
   const navigation = [
@@ -24,6 +25,10 @@ const Layout = () => {
     { name: 'Activities', href: '/activities', icon: Activity, color: 'coral' },
     { name: 'Profile', href: '/profile', icon: User, color: 'sage' },
   ];
+
+  const handleLogout = () => {
+    signOut();
+  };
 
   return (
     <div className="min-h-screen bg-gradient-mesh relative overflow-hidden">
@@ -60,7 +65,7 @@ const Layout = () => {
             </div>
             <div className="pl-1">
               <p className="text-xs font-accent uppercase tracking-wider text-charcoal/50 mb-1">Welcome back</p>
-              <p className="text-lg font-semibold text-charcoal font-display">{user?.name || 'Student'}</p>
+              <p className="text-lg font-semibold text-charcoal font-display">{user?.firstName || user?.fullName || 'Student'}</p>
             </div>
           </div>
 
@@ -114,7 +119,7 @@ const Layout = () => {
           {/* Logout */}
           <div className="pt-6 border-t border-charcoal/10 animate-fade-in-up">
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="group flex items-center gap-4 px-5 py-4 w-full text-charcoal/60 hover:text-charcoal hover:bg-white/40 rounded-3xl transition-all duration-500 relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-terracotta/5 to-deep-teal/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../services/authContext';
-import { authAPI } from '../services/api';
+import { useMutation } from 'convex/react';
+import { api } from '@convex/api';
+import { useAuthUser } from '../hooks/useAuthUser';
 import toast from 'react-hot-toast';
 import { User, Mail, GraduationCap, BookOpen, Calendar, Edit2, Check, X } from 'lucide-react';
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuthUser();
+  const updateProfileMutation = useMutation(api.auth.updateProfile);
+
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -32,17 +35,29 @@ const Profile = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await authAPI.updateProfile({
-        ...formData,
-        year: formData.year ? parseInt(formData.year) : null,
+      await updateProfileMutation({
+        name: formData.name || undefined,
+        university: formData.university || undefined,
+        year: formData.year ? parseInt(formData.year) : undefined,
+        major: formData.major || undefined,
       });
       toast.success('Profile updated! ✓');
       setIsEditing(false);
-      window.location.reload();
     } catch (error) {
       toast.error('Failed to update profile');
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-coral/20 border-t-coral rounded-full animate-spin"></div>
+          <div className="mt-4 text-charcoal/60 text-center font-medium">Loading profile...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto animate-fade-in-up">

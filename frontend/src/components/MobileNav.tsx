@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../services/authContext';
+import { useClerk, useUser } from '@clerk/clerk-react';
 import {
   LayoutDashboard,
   Calendar,
@@ -16,7 +16,8 @@ import {
 
 const MobileNav = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const location = useLocation();
 
   const navigation = [
@@ -30,7 +31,7 @@ const MobileNav = () => {
 
   const handleLogout = () => {
     setIsOpen(false);
-    logout();
+    signOut();
   };
 
   const handleNavClick = () => {
@@ -109,7 +110,7 @@ const MobileNav = () => {
             </div>
             <div className="pl-1">
               <p className="text-xs font-accent uppercase tracking-wider text-charcoal/50 mb-1">Welcome back</p>
-              <p className="text-lg font-semibold text-charcoal font-display">{user?.name || 'Student'}</p>
+              <p className="text-lg font-semibold text-charcoal font-display">{user?.firstName || user?.fullName || 'Student'}</p>
             </div>
           </div>
 

@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider, useAuth } from './services/authContext';
+import { ClerkProvider, SignedIn, SignedOut, useAuth } from '@clerk/clerk-react';
+import { ConvexProviderWithClerk } from 'convex/react-clerk';
+import { ConvexReactClient } from 'convex/react';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -11,23 +13,28 @@ import Activities from './pages/Activities';
 import Profile from './pages/Profile';
 import Layout from './components/Layout';
 
+const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
-  const { token, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
-      </div>
-    );
-  }
-
-  return token ? <>{children}</> : <Navigate to="/login" />;
+  return (
+    <>
+      <SignedIn>{children}</SignedIn>
+      <SignedOut>
+        <Navigate to="/login" />
+      </SignedOut>
+    </>
+  );
 };
 
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { token } = useAuth();
-  return token ? <Navigate to="/dashboard" /> : <>{children}</>;
+  return (
+    <>
+      <SignedOut>{children}</SignedOut>
+      <SignedIn>
+        <Navigate to="/dashboard" />
+      </SignedIn>
+    </>
+  );
 };
 
 function AppRoutes() {
@@ -73,10 +80,12 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-      <Toaster position="top-right" />
-    </AuthProvider>
+    <ClerkProvider publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string}>
+      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+        <AppRoutes />
+        <Toaster position="top-right" />
+      </ConvexProviderWithClerk>
+    </ClerkProvider>
   );
 }
 

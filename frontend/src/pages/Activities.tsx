@@ -1,38 +1,25 @@
-import { useEffect, useState } from 'react';
-import { activityAPI } from '../services/api';
+import { useState } from 'react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@convex/api';
+import { Id } from '@convex/dataModel';
 import toast from 'react-hot-toast';
 import { Dumbbell, Brain, Users, Leaf, Palette, Coffee, Sparkles, Clock, Star } from 'lucide-react';
 
 const Activities = () => {
-  const [activities, setActivities] = useState<any[]>([]);
-  const [recommended, setRecommended] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const activitiesData = useQuery(api.activities.listAll, {});
+  const activities = activitiesData ?? [];
+  const recommendedData = useQuery(api.activities.getRecommended, { limit: 3 });
+  const recommended = recommendedData ?? [];
+  const loading = activitiesData === undefined;
+
+  const logActivityMutation = useMutation(api.activities.logActivity);
+
   const [filter, setFilter] = useState('ALL');
 
-  useEffect(() => {
-    fetchActivities();
-  }, []);
-
-  const fetchActivities = async () => {
+  const handleLogActivity = async (activityId: Id<"activities">) => {
     try {
-      const [activitiesRes, recommendedRes] = await Promise.all([
-        activityAPI.getAll(),
-        activityAPI.getRecommended({ limit: 3 }),
-      ]);
-      setActivities(activitiesRes.data.activities || []);
-      setRecommended(recommendedRes.data.recommendedActivities || []);
-    } catch (error) {
-      toast.error('Failed to load activities');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogActivity = async (activityId: string) => {
-    try {
-      await activityAPI.log({ activityId });
+      await logActivityMutation({ activityId });
       toast.success('Activity logged! 🎉');
-      fetchActivities();
     } catch (error) {
       toast.error('Failed to log activity');
     }
@@ -100,7 +87,7 @@ const Activities = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {recommended.map((activity, idx) => (
               <div
-                key={activity.id}
+                key={activity._id}
                 className="card bg-gradient-to-br from-coral/5 to-transparent border-2 border-coral/20 group hover:border-coral/40"
                 style={{ animationDelay: `${idx * 0.1}s` }}
               >
@@ -130,7 +117,7 @@ const Activities = () => {
                 </div>
 
                 <button
-                  onClick={() => handleLogActivity(activity.id)}
+                  onClick={() => handleLogActivity(activity._id)}
                   className="btn-primary w-full"
                 >
                   Start Activity
@@ -173,7 +160,7 @@ const Activities = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredActivities.map((activity, idx) => (
               <div
-                key={activity.id}
+                key={activity._id}
                 className="card group"
                 style={{ animationDelay: `${idx * 0.05}s` }}
               >
@@ -201,7 +188,7 @@ const Activities = () => {
                 </div>
 
                 <button
-                  onClick={() => handleLogActivity(activity.id)}
+                  onClick={() => handleLogActivity(activity._id)}
                   className="btn-secondary w-full group-hover:bg-sage/20"
                 >
                   Log Activity

@@ -1,41 +1,39 @@
-import { useEffect, useState } from 'react';
-import { scheduleAPI } from '../services/api';
+import { useState } from 'react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@convex/api';
 import toast from 'react-hot-toast';
 import { Plus, Calendar, Clock, MapPin, X } from 'lucide-react';
 
+type ScheduleType = "CLASS" | "STUDY" | "BREAK" | "SOCIAL" | "EXERCISE" | "OTHER";
+
 const Schedule = () => {
-  const [schedules, setSchedules] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const schedules = useQuery(api.schedules.list, {}) ?? [];
+  const createSchedule = useMutation(api.schedules.create);
+
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     startTime: '',
     endTime: '',
-    type: 'CLASS',
+    type: 'CLASS' as ScheduleType,
     location: '',
   });
 
-  useEffect(() => {
-    fetchSchedules();
-  }, []);
-
-  const fetchSchedules = async () => {
-    try {
-      const response = await scheduleAPI.getAll();
-      setSchedules(response.data.schedules);
-    } catch (error) {
-      toast.error('Failed to load schedules');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = schedules === undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await scheduleAPI.create(formData);
-      toast.success('Event created! 📅');
+      await createSchedule({
+        title: formData.title,
+        description: formData.description || undefined,
+        startTime: new Date(formData.startTime).getTime(),
+        endTime: new Date(formData.endTime).getTime(),
+        type: formData.type,
+        location: formData.location || undefined,
+      });
+      toast.success('Event created!');
       setShowForm(false);
       setFormData({
         title: '',
@@ -45,7 +43,6 @@ const Schedule = () => {
         type: 'CLASS',
         location: '',
       });
-      fetchSchedules();
     } catch (error) {
       toast.error('Failed to create event');
     }
@@ -79,7 +76,6 @@ const Schedule = () => {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="relative animate-fade-in-scale">
-          {/* Sophisticated loading spinner */}
           <div className="relative w-24 h-24">
             <div className="absolute inset-0 border-4 border-deep-teal/20 rounded-full"></div>
             <div className="absolute inset-0 border-4 border-transparent border-t-deep-teal border-r-terracotta rounded-full animate-spin"></div>
@@ -144,13 +140,13 @@ const Schedule = () => {
           <div className="glass rounded-3xl p-6 border border-white/30 hover:shadow-elegant transition-all duration-500">
             <p className="text-xs font-accent uppercase tracking-wider text-charcoal/50 mb-2">This Week</p>
             <p className="text-3xl font-display font-bold text-gradient-warm">
-              {schedules.filter(s => new Date(s.startTime) > new Date()).length}
+              {schedules.filter((s: any) => s.startTime > Date.now()).length}
             </p>
           </div>
           <div className="glass rounded-3xl p-6 border border-white/30 hover:shadow-elegant transition-all duration-500">
             <p className="text-xs font-accent uppercase tracking-wider text-charcoal/50 mb-2">Upcoming</p>
             <p className="text-3xl font-display font-bold text-deep-teal">
-              {schedules.filter(s => new Date(s.startTime) > new Date() && new Date(s.startTime) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)).length}
+              {schedules.filter((s: any) => s.startTime > Date.now() && s.startTime < Date.now() + 7 * 24 * 60 * 60 * 1000).length}
             </p>
           </div>
         </div>
@@ -225,7 +221,7 @@ const Schedule = () => {
                 </label>
                 <select
                   value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as ScheduleType })}
                   className="input cursor-pointer"
                 >
                   <option value="CLASS">Class</option>
@@ -277,9 +273,9 @@ const Schedule = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {schedules.map((schedule, idx) => (
+          {schedules.map((schedule: any, idx: number) => (
             <div
-              key={schedule.id}
+              key={schedule._id}
               className="card group hover:shadow-float transition-all duration-500 cursor-pointer relative overflow-hidden"
               style={{ animationDelay: `${idx * 0.05}s` }}
             >
