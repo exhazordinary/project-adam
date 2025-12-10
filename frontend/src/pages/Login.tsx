@@ -39,8 +39,6 @@ const Login = () => {
                 footerActionLink: "text-coral hover:text-coral-dark font-semibold",
               },
             }}
-            routing="path"
-            path="/login"
             signUpUrl="/register"
             afterSignInUrl="/dashboard"
           />

@@ -41,10 +41,9 @@ const Register = () => {
                 footerActionLink: "text-deep-teal hover:text-soft-teal font-semibold",
               },
             }}
-            routing="path"
-            path="/register"
             signInUrl="/login"
             afterSignUpUrl="/dashboard"
+            fallbackRedirectUrl="/dashboard"
           />
         </div>
 

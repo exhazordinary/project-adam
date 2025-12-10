@@ -2,19 +2,64 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/api';
-import { Calendar, CheckSquare, Smile, Activity, ArrowRight, Clock, TrendingUp, Zap, Plus } from 'lucide-react';
+import { Calendar, CheckSquare, Smile, Activity, ArrowRight, Clock, TrendingUp, Zap, Plus, AlertCircle, RefreshCw } from 'lucide-react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import confetti from 'canvas-confetti';
+import { useAuthUser } from '../hooks/useAuthUser';
 
 const Dashboard = () => {
-  const todaySchedule = useQuery(api.schedules.getToday) ?? [];
-  const upcomingTasks = useQuery(api.tasks.getUpcoming) ?? [];
-  const latestMood = useQuery(api.mood.getLatest);
+  const { isSignedIn, loading: authLoading, user: convexUser, error: authError, retry: retryAuth } = useAuthUser();
+  
+  // Only query when user exists in Convex (not just when signed in)
+  const shouldQuery = isSignedIn && convexUser !== undefined && convexUser !== null;
+  
+  const todaySchedule = useQuery(
+    api.schedules.getToday,
+    shouldQuery ? {} : "skip"
+  ) ?? [];
+  const upcomingTasks = useQuery(
+    api.tasks.getUpcoming,
+    shouldQuery ? {} : "skip"
+  ) ?? [];
+  const latestMood = useQuery(
+    api.mood.getLatest,
+    shouldQuery ? {} : "skip"
+  );
 
   const [showQuickActions, setShowQuickActions] = useState(false);
 
-  const loading = todaySchedule === undefined || upcomingTasks === undefined;
+  const loading = authLoading || (!authError && !shouldQuery) || todaySchedule === undefined || upcomingTasks === undefined;
+
+  // Show error state if auth sync failed
+  if (authError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center max-w-md mx-auto p-8"
+        >
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-terracotta/10 flex items-center justify-center">
+            <AlertCircle className="text-terracotta" size={40} />
+          </div>
+          <h2 className="text-2xl font-display font-bold text-charcoal mb-3">
+            Connection Error
+          </h2>
+          <p className="text-charcoal/60 mb-6">
+            Unable to connect to the server. Please check your connection and try again.
+          </p>
+          <button
+            onClick={retryAuth}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-deep-teal to-soft-teal text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
+          >
+            <RefreshCw size={18} />
+            Try Again
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   const stats = {
     events: todaySchedule?.length ?? 0,
