@@ -1,421 +1,330 @@
-# Student Balance Application - Setup Guide
+# Student Balance - Setup Guide
 
-Complete guide to set up and run the Time Management and Student Life Balance Application.
+Complete guide to set up and run the Student Balance application.
 
 ## Table of Contents
+
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-- [Database Setup](#database-setup)
+- [Clerk Setup](#clerk-setup)
+- [Convex Setup](#convex-setup)
+- [Environment Variables](#environment-variables)
 - [Running the Application](#running-the-application)
-- [Project Structure](#project-structure)
-- [Available Scripts](#available-scripts)
-- [API Documentation](#api-documentation)
+- [Seeding Data](#seeding-data)
+- [Troubleshooting](#troubleshooting)
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
-
-- **Node.js** (v18 or higher) - [Download](https://nodejs.org/)
-- **npm** or **yarn** package manager
-
-**That's it!** No database setup required - we use SQLite which is file-based and comes bundled with Prisma.
+- **Node.js** v18 or higher - [Download](https://nodejs.org/)
+- **npm** package manager (comes with Node.js)
+- **Clerk account** - [Sign up](https://clerk.com)
+- **Convex account** - [Sign up](https://convex.dev)
 
 ## Installation
 
-### 1. Clone the Repository
+### 1. Clone and Install Dependencies
+
 ```bash
+# Clone the repository
+git clone https://github.com/exhazordinary/project-adam.git
 cd project-adam
-```
 
-### 2. Install Backend Dependencies
-```bash
-cd backend
+# Install root dependencies
 npm install
-```
 
-### 3. Install Frontend Dependencies
-```bash
-cd ../frontend
+# Install frontend dependencies
+cd frontend
 npm install
+cd ..
 ```
 
-## Database Setup
+## Clerk Setup
 
-**Good news!** The database is already configured and ready to use with SQLite.
+Clerk handles user authentication. You need to configure it to work with Convex.
 
-### 1. Initialize Database
+### 1. Create a Clerk Application
+
+1. Go to https://dashboard.clerk.com
+2. Click **Create Application**
+3. Name your application (e.g., "Student Balance")
+4. Select sign-in methods (Email, Google, etc.)
+5. Click **Create Application**
+
+### 2. Create JWT Template for Convex
+
+This is **critical** - without this, authentication won't work.
+
+1. In Clerk Dashboard, go to **JWT Templates** (in the sidebar)
+2. Click **New Template**
+3. Select **Convex** from the list
+4. The template name must be exactly: `convex`
+5. Click **Apply Changes**
+
+### 3. Get Your API Keys
+
+1. Go to **API Keys** in the sidebar
+2. Copy your **Publishable Key** (starts with `pk_test_` or `pk_live_`)
+
+## Convex Setup
+
+Convex is the serverless backend platform.
+
+### 1. Initialize Convex
 
 ```bash
-cd backend
-
-# Generate Prisma Client
-npx prisma generate
-
-# Create database and tables
-npx prisma migrate dev --name init
-
-# Seed with sample activities
-npm run prisma:seed
+npx convex dev
 ```
 
-This creates a `dev.db` file in the backend folder with all tables and sample data.
+This will:
+- Prompt you to log in to Convex (opens browser)
+- Ask you to create or select a project
+- Deploy your backend functions
+- Show you your Convex URL
 
-### 2. Verify Database Setup (Optional)
+Keep this terminal running during development.
 
-Open Prisma Studio to view your database:
-```bash
-npm run prisma:studio
+### 2. Note Your Convex URL
+
+After running `npx convex dev`, you'll see output like:
+```
+Convex functions ready!
 ```
 
-This will open a browser window at `http://localhost:5555` where you can view your database tables and data.
+Your Convex URL is shown in the Convex dashboard or in `.env.local` that gets created.
+
+## Environment Variables
+
+### Frontend Environment
+
+Create `frontend/.env.local` (or copy from `.env.example`):
+
+```env
+# Convex URL - get this from `npx convex dev` or Convex dashboard
+VITE_CONVEX_URL=https://your-project-name.convex.cloud
+
+# Clerk Publishable Key - get this from Clerk dashboard
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
+```
+
+### Auth Config File
+
+Ensure `convex/auth.config.ts` exists with your Clerk domain:
+
+```typescript
+export default {
+  providers: [
+    {
+      domain: "https://your-clerk-domain.clerk.accounts.dev",
+      applicationID: "convex",
+    },
+  ],
+};
+```
+
+To find your Clerk domain:
+1. Your Clerk publishable key is base64 encoded
+2. Decode it to get the domain, or
+3. Check the Clerk dashboard under your application settings
 
 ## Running the Application
 
-You'll need two terminal windows - one for backend, one for frontend.
-
-### Terminal 1: Start Backend Server
+### Development Mode
 
 ```bash
-cd backend
-npx ts-node src/server.ts
-```
-
-The backend API will start on `http://localhost:3001`
-
-You should see:
-```
-Database connected successfully
-Server is running on port 3001
-Environment: development
-```
-
-### Terminal 2: Start Frontend Application
-
-```bash
-cd frontend
+# From project root - runs both Convex and frontend
 npm run dev
 ```
 
-The frontend will start on `http://localhost:5173`
+This starts:
+- Convex backend on their cloud (watches for changes)
+- Frontend on http://localhost:5173
 
-You should see:
-```
-  VITE v5.4.x  ready in xxx ms
+### Run Separately
 
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: use --host to expose
-```
+```bash
+# Terminal 1: Convex backend
+npm run dev:convex
 
-### Access the Application
-
-Open your browser and navigate to:
-```
-http://localhost:5173
+# Terminal 2: Frontend
+npm run dev:frontend
 ```
 
-You should see the login page. Click "Register here" to create a new account.
+## Seeding Data
+
+To populate the database with sample activities and relaxation techniques:
+
+1. Open the Convex dashboard: https://dashboard.convex.dev
+2. Select your project
+3. Go to **Functions**
+4. Find `seed:seedAll`
+5. Click **Run** to seed the database
+
+Or use the Convex CLI:
+```bash
+npx convex run seed:seedAll
+```
 
 ## Project Structure
 
 ```
 project-adam/
-├── backend/
-│   ├── src/
-│   │   ├── controllers/      # Request handlers
-│   │   ├── routes/           # API routes
-│   │   ├── middleware/       # Auth & error handling
-│   │   ├── services/         # Business logic
-│   │   ├── config/           # Configuration files
-│   │   ├── utils/            # Helper functions
-│   │   └── server.ts         # Entry point
-│   ├── prisma/
-│   │   ├── schema.prisma     # Database schema
-│   │   └── seed.ts           # Sample data
-│   ├── .env                  # Environment variables
-│   ├── package.json
-│   └── tsconfig.json
+├── convex/                   # Backend (Convex)
+│   ├── _generated/           # Auto-generated Convex files
+│   ├── auth.config.ts        # Clerk authentication config
+│   ├── auth.ts               # User auth functions
+│   ├── schema.ts             # Database schema
+│   ├── tasks.ts              # Task CRUD operations
+│   ├── schedules.ts          # Schedule CRUD operations
+│   ├── mood.ts               # Mood tracking
+│   ├── activities.ts         # Wellness activities
+│   └── seed.ts               # Database seeding
 │
-├── frontend/
+├── frontend/                 # Frontend (React)
 │   ├── src/
-│   │   ├── components/       # Reusable components
+│   │   ├── components/       # Reusable UI components
 │   │   ├── pages/            # Page components
-│   │   ├── services/         # API & auth services
-│   │   ├── types/            # TypeScript types
-│   │   ├── App.tsx           # Main app component
-│   │   └── main.tsx          # Entry point
-│   ├── .env                  # Environment variables
-│   ├── package.json
-│   └── vite.config.ts
+│   │   ├── hooks/            # Custom React hooks
+│   │   ├── types/            # TypeScript definitions
+│   │   └── App.tsx           # Main app with routing
+│   ├── .env.local            # Environment variables
+│   └── package.json
 │
-└── README.md
+├── .env.example              # Environment template
+├── package.json              # Root package.json
+├── README.md
+└── SETUP_GUIDE.md
 ```
 
 ## Available Scripts
 
-### Backend Scripts
+### Root Directory
 
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start both Convex and frontend |
+| `npm run dev:convex` | Start Convex backend only |
+| `npm run dev:frontend` | Start frontend only |
+| `npm run build` | Build frontend for production |
+
+### Convex CLI
+
+| Command | Description |
+|---------|-------------|
+| `npx convex dev` | Start Convex in development mode |
+| `npx convex deploy` | Deploy to production |
+| `npx convex run <function>` | Run a Convex function |
+| `npx convex logs` | View function logs |
+
+## Troubleshooting
+
+### "Not authenticated" errors in console
+
+**Cause**: Missing or incorrect Clerk JWT template configuration.
+
+**Solution**:
+1. Go to Clerk Dashboard → JWT Templates
+2. Create a template named exactly `convex`
+3. Ensure `convex/auth.config.ts` exists with correct Clerk domain
+4. Restart `npm run dev`
+
+### Frontend shows endless loading
+
+**Cause**: Convex isn't receiving auth tokens from Clerk.
+
+**Solution**:
+1. Check that `VITE_CLERK_PUBLISHABLE_KEY` is set correctly
+2. Verify JWT template exists in Clerk
+3. Check browser console for errors
+
+### "Convex URL not set" or connection errors
+
+**Cause**: Missing or incorrect `VITE_CONVEX_URL`.
+
+**Solution**:
+1. Run `npx convex dev` and check output for URL
+2. Update `frontend/.env.local` with correct URL
+3. Restart the frontend
+
+### Database is empty (no activities)
+
+**Cause**: Database hasn't been seeded.
+
+**Solution**:
 ```bash
-npx ts-node src/server.ts    # Start development server
-npm run build                # Build for production
-npm run start                # Start production server
-npx prisma generate          # Generate Prisma Client
-npx prisma migrate dev       # Run database migrations
-npm run prisma:studio        # Open Prisma Studio
-npm run prisma:seed          # Seed database with sample data
+npx convex run seed:seedAll
 ```
 
-### Frontend Scripts
+### Port 5173 already in use
 
+**Solution**:
 ```bash
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run preview  # Preview production build
-npm run lint     # Run ESLint
-```
-
-## API Documentation
-
-### Base URL
-```
-http://localhost:3001/api
-```
-
-### Authentication Endpoints
-
-#### Register
-```http
-POST /api/auth/register
-Content-Type: application/json
-
-{
-  "email": "student@university.edu",
-  "password": "securepassword",
-  "name": "John Doe",
-  "university": "University Name",
-  "year": 2,
-  "major": "Computer Science"
-}
-```
-
-#### Login
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "email": "student@university.edu",
-  "password": "securepassword"
-}
-```
-
-Response:
-```json
-{
-  "token": "jwt-token",
-  "user": { ... }
-}
-```
-
-#### Get Profile
-```http
-GET /api/auth/profile
-Authorization: Bearer <token>
-```
-
-### Schedule Endpoints
-
-```http
-GET    /api/schedules              # Get all schedules
-GET    /api/schedules/today        # Get today's schedule
-GET    /api/schedules/:id          # Get specific schedule
-POST   /api/schedules              # Create schedule
-PUT    /api/schedules/:id          # Update schedule
-DELETE /api/schedules/:id          # Delete schedule
-```
-
-### Task Endpoints
-
-```http
-GET    /api/tasks                  # Get all tasks
-GET    /api/tasks/upcoming         # Get upcoming deadlines
-POST   /api/tasks                  # Create task
-PUT    /api/tasks/:id              # Update task
-DELETE /api/tasks/:id              # Delete task
-```
-
-### Mood Endpoints
-
-```http
-GET    /api/mood                   # Get mood entries
-GET    /api/mood/latest            # Get latest entry
-GET    /api/mood/stats             # Get mood statistics
-POST   /api/mood                   # Create mood entry
-```
-
-### Activity Endpoints
-
-```http
-GET    /api/activities             # Get all activities
-GET    /api/activities/recommended # Get recommended activities
-GET    /api/activities/stats       # Get activity statistics
-GET    /api/activities/user        # Get user's activity history
-POST   /api/activities/log         # Log completed activity
-```
-
-## Features Implemented
-
-### ✅ Core Features
-
-1. **User Authentication**
-   - Registration and login
-   - JWT-based authentication
-   - Profile management
-
-2. **Schedule Management**
-   - Create, read, update, delete schedules
-   - Support for different event types (CLASS, STUDY, BREAK, SOCIAL, EXERCISE)
-   - Recurring events
-   - Today's schedule view
-
-3. **Task Management**
-   - Create and manage tasks
-   - Priority levels (LOW, MEDIUM, HIGH, URGENT)
-   - Status tracking (TODO, IN_PROGRESS, COMPLETED)
-   - Upcoming deadlines view
-
-4. **Mood Tracking**
-   - Log daily mood and stress levels
-   - Add notes and activities
-   - Track sleep hours
-   - View mood statistics and trends
-   - 7-day mood analysis
-
-5. **Activity Recommendations**
-   - Pre-seeded wellness activities
-   - Personalized recommendations based on stress levels
-   - Activity logging and tracking
-   - Multiple categories (EXERCISE, MEDITATION, SOCIAL, etc.)
-
-6. **Relaxation Techniques**
-   - Database of relaxation techniques
-   - Step-by-step instructions
-   - Categorized by type and difficulty
-
-### 🎨 User Interface
-
-- Clean, modern design with Tailwind CSS
-- Responsive layout
-- Dashboard with quick statistics
-- Intuitive navigation
-- Real-time notifications
-
-## Common Issues & Solutions
-
-### Issue: Port Already in Use (Port 3001 or 5173)
-
-**Solution**: Kill the process using the port:
-```bash
-# Kill process on port 3001 (backend)
-lsof -ti:3001 | xargs kill -9
-
-# Kill process on port 5173 (frontend)
+# Kill the process
 lsof -ti:5173 | xargs kill -9
+
+# Or use a different port
+cd frontend && npm run dev -- --port 3000
 ```
 
-Or change the port in `.env` files and restart.
+### Changes not reflecting
 
-### Issue: Prisma Client Not Generated
+**Solution**:
+1. Check that `npx convex dev` is running (watches for backend changes)
+2. Frontend has hot reload - changes should appear automatically
+3. Try hard refresh: Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows)
 
-**Solution**: Generate the Prisma Client:
-```bash
-cd backend
-npx prisma generate
-```
+## API Reference
 
-### Issue: Database File Locked
+### Authentication (`convex/auth.ts`)
 
-**Solution**: Close all connections to the database:
-```bash
-cd backend
-rm dev.db
-npx prisma migrate dev --name init
-npm run prisma:seed
-```
+| Function | Type | Description |
+|----------|------|-------------|
+| `getCurrentUser` | Query | Get current authenticated user |
+| `storeUser` | Mutation | Create/sync user from Clerk |
+| `updateProfile` | Mutation | Update user profile |
 
-### Issue: Module Not Found Errors
+### Tasks (`convex/tasks.ts`)
 
-**Solution**: Reinstall dependencies:
-```bash
-# Backend
-cd backend
-rm -rf node_modules
-npm install
+| Function | Type | Description |
+|----------|------|-------------|
+| `list` | Query | Get all user tasks |
+| `getUpcoming` | Query | Get tasks due in 7 days |
+| `create` | Mutation | Create new task |
+| `update` | Mutation | Update task |
+| `updateStatus` | Mutation | Change task status |
+| `remove` | Mutation | Delete task |
 
-# Frontend
-cd frontend
-rm -rf node_modules
-npm install
-```
+### Schedules (`convex/schedules.ts`)
 
-## Development Tips
+| Function | Type | Description |
+|----------|------|-------------|
+| `list` | Query | Get all schedules |
+| `getToday` | Query | Get today's schedule |
+| `create` | Mutation | Create schedule event |
+| `update` | Mutation | Update schedule |
+| `remove` | Mutation | Delete schedule |
 
-1. **Prisma Studio**: Use `npm run prisma:studio` to visually inspect and edit database records at `http://localhost:5555`
+### Mood (`convex/mood.ts`)
 
-2. **Database Location**: The SQLite database file is at `backend/dev.db` - you can back it up or delete it to start fresh
+| Function | Type | Description |
+|----------|------|-------------|
+| `list` | Query | Get mood entries |
+| `getLatest` | Query | Get most recent mood |
+| `getStats` | Query | Get mood statistics |
+| `create` | Mutation | Log mood entry |
 
-3. **Hot Reload**: Frontend supports hot reload. Backend requires manual restart (Ctrl+C and restart)
+### Activities (`convex/activities.ts`)
 
-4. **Database Changes**: After modifying `schema.prisma`, run:
-   ```bash
-   npx prisma migrate dev --name your_migration_name
-   npx prisma generate
-   ```
-
-5. **Testing API**: Use tools like Postman, Thunder Client, or curl to test API endpoints
-
-6. **Logs**: Check terminal output for errors and debugging information
-
-7. **Reset Database**: To start with a fresh database:
-   ```bash
-   cd backend
-   rm dev.db
-   npx prisma migrate dev --name init
-   npm run prisma:seed
-   ```
-
-## Next Steps
-
-After successfully running the application:
-
-1. Register a new account
-2. Explore the dashboard
-3. Create some schedules and tasks
-4. Log your mood
-5. Try recommended activities
-6. Customize your profile
+| Function | Type | Description |
+|----------|------|-------------|
+| `listAll` | Query | Get all activities |
+| `getRecommended` | Query | Get stress-based recommendations |
+| `logActivity` | Mutation | Log completed activity |
+| `getStats` | Query | Get activity statistics |
 
 ## Support
 
-For issues or questions:
-- Check the error messages in terminal
-- Review the console in browser DevTools
-- Ensure all prerequisites are installed
-- Verify database connection
-- Check that both servers are running
-
-## Future Enhancements
-
-Potential features to add:
-- Email notifications for reminders
-- Calendar export/import (iCal format)
-- Data visualization with charts
-- Mobile app version
-- Social features (study groups)
-- Integration with university systems
-- AI-powered activity recommendations
-- Habit tracking
-- Pomodoro timer integration
-
----
-
-**Happy Coding! 🚀**
+For issues:
+1. Check the troubleshooting section above
+2. Review browser console and terminal for errors
+3. Ensure all environment variables are set correctly
+4. Open an issue on GitHub
