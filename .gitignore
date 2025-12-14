@@ -34,6 +34,8 @@ Thumbs.db
 
 # Testing
 coverage/
+playwright-report/
+test-results/
 
 # Convex (auto-generated)
 convex/_generated/
@@ -45,3 +47,4 @@ frontend/dev-dist/
 .cache/
 .temp/
 tmp/
+.vercel
